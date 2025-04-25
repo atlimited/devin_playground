@@ -10,8 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from typing import Dict, List, Optional, Union, Any
 import litellm
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.proxy_server import ProxyConfig
+# from litellm.proxy._types import UserAPIKeyAuth
+# from litellm.proxy.proxy_server import ProxyConfig
 
 # Load environment variables
 load_dotenv()
@@ -36,7 +36,7 @@ app.add_middleware(
 )
 
 # Path to config file
-config_file_path = "/Users/takagi/devin_playground/litellm_config.yaml"
+config_file_path = os.path.join(os.path.dirname(__file__), "litellm_config.yaml")
 
 # Get proxy settings from environment variables
 http_proxy = os.getenv("HTTP_PROXY", "")

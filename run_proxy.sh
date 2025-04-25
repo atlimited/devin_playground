@@ -1,6 +1,13 @@
-export HTTPS_PROXY=http://localhost:8080
-export HTTP_PROXY=http://localhost:8080
-export SSL_CERT_FILE=/Users/takagi/.mitmproxy/mitmproxy-ca-cert.pem
-export REQUESTS_CA_BUNDLE=/Users/takagi/.mitmproxy/mitmproxy-ca-cert.pem
 
+if [ -f .env ]; then
+    source .env
+    echo "Loaded environment variables from .env"
+else
+    echo "Warning: .env file not found"
+fi
+
+PORT=${PORT:-8000}
+HOST=${HOST:-0.0.0.0}
+
+echo "Starting LiteLLM proxy server on $HOST:$PORT..."
 python proxy_server.py
