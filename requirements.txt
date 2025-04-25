@@ -1,3 +1,4 @@
 streamlit>=1.20.0
 openai==0.28.0
 pytest>=7.0.0
+litellm==0.14.0
