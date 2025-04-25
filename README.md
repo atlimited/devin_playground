@@ -1,11 +1,12 @@
-# Streamlit Chatbot with OpenAI
+# Multi-Provider Chatbot with LiteLLM
 
-A simple chat UI built with Streamlit and the OpenAI API. This application allows users to input text, send it to the OpenAI ChatCompletion API, and display the API's response in a chat format.
+A chat UI built with Streamlit and LiteLLM, supporting multiple LLM providers. This application allows users to select an LLM provider, input text, send it to the selected provider's API, and display the response in a chat format.
 
 ## Features
 
+- Provider selection dropdown (OpenAI, Anthropic, Cohere)
 - Text input form for users to enter messages
-- Integration with OpenAI ChatCompletion API
+- Integration with multiple LLM providers via LiteLLM
 - Chat-like display of conversation history
 - Session persistence for message history
 - Unit tests with mocked API calls
@@ -16,7 +17,8 @@ A simple chat UI built with Streamlit and the OpenAI API. This application allow
 - Python 3.11 or higher
 - Streamlit
 - OpenAI Python SDK
-- OpenAI API key
+- LiteLLM
+- API keys for supported providers
 
 ## Installation
 
@@ -25,9 +27,11 @@ A simple chat UI built with Streamlit and the OpenAI API. This application allow
    ```
    pip install -r requirements.txt
    ```
-3. Set your OpenAI API key as an environment variable:
+3. Set your API keys as environment variables:
    ```
-   export OPENAI_API_KEY="your-api-key"
+   export OPENAI_API_KEY="your-openai-api-key"
+   export ANTHROPIC_API_KEY="your-anthropic-api-key"
+   export COHERE_API_KEY="your-cohere-api-key"
    ```
 
 ## Usage
@@ -36,15 +40,16 @@ A simple chat UI built with Streamlit and the OpenAI API. This application allow
    ```
    streamlit run app.py
    ```
-2. Enter your message in the text input field
-3. Click the "Send" button to submit your message
-4. View the AI's response in the chat history
-5. Continue the conversation by sending more messages
+2. Select your preferred LLM provider from the dropdown
+3. Enter your message in the text input field
+4. Click the "Send" button to submit your message
+5. View the AI's response in the chat history
+6. Continue the conversation by sending more messages
 
 ## Testing
 
 ### Unit Tests
-Run unit tests with mocked OpenAI API:
+Run unit tests with mocked LLM APIs:
 ```
 pytest tests/test_app.py -v
 ```
@@ -57,7 +62,14 @@ pytest tests/test_integration.py -v
 
 ### Manual Testing
 For manual testing:
-1. Set your OpenAI API key: `export OPENAI_API_KEY="your-api-key"`
+1. Set your API keys: 
+   ```
+   export OPENAI_API_KEY="your-openai-api-key"
+   export ANTHROPIC_API_KEY="your-anthropic-api-key"
+   export COHERE_API_KEY="your-cohere-api-key"
+   ```
 2. Run the app: `streamlit run app.py`
-3. Interact with the chat interface in your browser
-4. Verify that messages are sent and responses are displayed correctly
+3. Select a provider from the dropdown
+4. Interact with the chat interface in your browser
+5. Verify that messages are sent and responses are displayed correctly
+6. Try different providers to ensure they all work
