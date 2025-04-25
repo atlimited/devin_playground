@@ -158,7 +158,13 @@ router.set_model_list([
         "litellm_params": {
             "model": "sambanova/Meta-Llama-3.2-3B-Instruct"
         }
-    }
+    },
+    {
+        "model_name": "Llama-4-Maverick-17B-128E-Instruct",
+        "litellm_params": {
+            "model": "sambanova/Llama-4-Maverick-17B-128E-Instruct"
+        }
+    },
 ])
 
 logger.info(f"Router initialized with models")
@@ -175,6 +181,18 @@ async def chat_completions(request: Request):
         max_tokens = body.get("max_tokens")
         
         logger.info(f"Processing request for model: {model}")
+        
+        # Log message types to help with debugging
+        if messages and isinstance(messages, list):
+            for msg in messages:
+                # Check for complex message content (like images)
+                if isinstance(msg.get("content"), list):
+                    content_types = [
+                        content.get("type", "unknown") 
+                        for content in msg.get("content", []) 
+                        if isinstance(content, dict)
+                    ]
+                    logger.info(f"Message with multiple content types: {content_types}")
         
         # Create parameters dictionary
         params = {
@@ -224,6 +242,22 @@ async def proxy_settings():
         "http_proxy": http_proxy,
         "https_proxy": https_proxy,
         "litellm_proxy_options": litellm.proxy_options
+    }
+
+# Get vision capabilities
+@app.get("/v1/vision-capabilities")
+async def vision_capabilities():
+    """Get information about vision-capable models"""
+    vision_models = [
+        "gpt-4o-mini",
+        "claude-3.7-sonnet",
+        "gemini-2.5-pro"
+    ]
+    
+    return {
+        "vision_models": vision_models,
+        "supported_image_formats": ["jpg", "jpeg", "png"],
+        "max_image_size_kb": 20480  # 20MB
     }
 
 if __name__ == "__main__":
