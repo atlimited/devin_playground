@@ -12,6 +12,11 @@ from typing import Dict, List, Optional, Union, Any
 import litellm
 from litellm.proxy._types import UserAPIKeyAuth
 from litellm.proxy.proxy_server import ProxyConfig
+import base64
+import tempfile
+from fastapi.responses import JSONResponse
+from openai import OpenAI
+import uuid
 
 # Load environment variables
 load_dotenv()
@@ -86,6 +91,12 @@ router.set_model_list([
         "model_name": "o4-mini",
         "litellm_params": {
             "model": "openai/o4-mini"
+        }
+    },
+    {
+        "model_name": "gpt-4o-audio-preview",
+        "litellm_params": {
+            "model": "openai/gpt-4o-audio-preview"
         }
     },
     # Anthropic models
@@ -165,6 +176,12 @@ router.set_model_list([
             "model": "sambanova/Llama-4-Maverick-17B-128E-Instruct"
         }
     },
+    {
+        "model_name": "Whisper-Large-v3",
+        "litellm_params": {
+            "model": "sambanova/Whisper-Large-v3"
+        }
+    }
 ])
 
 logger.info(f"Router initialized with models")
@@ -210,6 +227,168 @@ async def chat_completions(request: Request):
     except Exception as e:
         logger.error(f"Error in chat completions: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/v1/audio/transcriptions")
+async def audio_transcriptions(request: Request):
+    """OpenAI-compatible audio transcriptions endpoint"""
+    try:
+        # マルチパート形式の場合とJSONの場合の両方に対応
+        content_type = request.headers.get("Content-Type", "")
+        
+        # リクエストパラメータを保存する変数を初期化
+        model = None
+        response_format = "text"
+        temp_file_path = None
+        
+        if "multipart/form-data" in content_type:
+            # FormDataからファイルとパラメータを取得
+            form = await request.form()
+            model = form.get("model")
+            response_format = form.get("response_format", "text")
+            
+            # ファイルの取得
+            file = form.get("file")
+            if not file:
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": "No file provided"}
+                )
+                
+            # 一時ファイルに保存
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
+                audio_bytes = await file.read()
+                temp_file.write(audio_bytes)
+                temp_file_path = temp_file.name
+        else:
+            # JSON形式の場合（以前のコード）
+            body = await request.json()
+            model = body.get("model")
+            response_format = body.get("response_format", "text")
+            file_data = body.get("file")
+            
+            # Extract the base64 data from the data URL
+            if file_data and isinstance(file_data, str) and file_data.startswith("data:"):
+                # Format is data:audio/mp3;base64,BASE64_DATA
+                # Split by the comma to get the base64 part
+                base64_data = file_data.split(",", 1)[1]
+            else:
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": "Invalid file format. Expected data URL format."}
+                )
+            
+            # Decode the base64 data
+            audio_bytes = base64.b64decode(base64_data)
+            
+            # Create a temporary file to store the audio
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
+                temp_file.write(audio_bytes)
+                temp_file_path = temp_file.name
+        
+        logger.info(f"Processing audio transcription request for model: {model}")
+        
+        try:
+            # Check which provider to use based on the model name
+            if model == "whisper-1":
+                # Use OpenAI client for OpenAI's Whisper model
+                client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+                
+                with open(temp_file_path, "rb") as audio_file:
+                    response = client.audio.transcriptions.create(
+                        model="whisper-1",
+                        file=audio_file,
+                        response_format=response_format
+                    )
+                
+                # Format the response
+                if response_format == "json":
+                    return JSONResponse(content=response.model_dump())
+                else:
+                    # 文字列形式のレスポンスの場合（これはOpenAI APIの仕様に依存）
+                    if isinstance(response, str):
+                        return JSONResponse(content={"text": response})
+                    else:
+                        try:
+                            return JSONResponse(content={"text": response.text})
+                        except AttributeError:
+                            # フォールバック: 返されたオブジェクトを文字列として扱う
+                            return JSONResponse(content={"text": str(response)})
+                    
+            elif model == "Whisper-Large-v3":
+                # Use SambaNova client for their Whisper model
+                import requests as sambanova_requests  # Use a different name to avoid conflicts
+                
+                sambanova_api_key = os.environ.get("SAMBANOVA_API_KEY")
+                if not sambanova_api_key:
+                    return JSONResponse(
+                        status_code=500,
+                        content={"error": "SAMBANOVA_API_KEY not set in environment variables"}
+                    )
+                
+                # SambaNova使用直接API endpoint
+                sambanova_endpoint = "https://api.sambanova.ai/v1/audio/transcriptions"
+                
+                headers = {
+                    "Authorization": f"Bearer {sambanova_api_key}"
+                }
+                
+                # SambaNova APIは file パラメータを使用
+                with open(temp_file_path, "rb") as audio_file:
+                    files = {
+                        "file": (os.path.basename(temp_file_path), audio_file, "audio/mpeg")
+                    }
+                    
+                    data = {
+                        "model": "Whisper-Large-v3",  # SambaNova の正確なモデル名（大文字小文字を維持）
+                        "response_format": response_format
+                    }
+                    
+                    # 言語が指定されていれば追加
+                    language = None
+                    if "multipart/form-data" in content_type:
+                        language = form.get("language")
+                    else:
+                        language = body.get("language")
+                        
+                    if language:
+                        data["language"] = language
+                    
+                    # リクエスト送信
+                    sambanova_response = sambanova_requests.post(
+                        sambanova_endpoint,
+                        headers=headers,
+                        files=files,
+                        data=data
+                    )
+                    
+                    if sambanova_response.status_code != 200:
+                        return JSONResponse(
+                            status_code=sambanova_response.status_code,
+                            content={"error": f"SambaNova API error: {sambanova_response.text}"}
+                        )
+                    
+                    # レスポンスフォーマットに応じて返却
+                    if response_format == "json":
+                        return JSONResponse(content=sambanova_response.json())
+                    else:
+                        return JSONResponse(content={"text": sambanova_response.text})
+            else:
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": f"Unsupported model: {model}. Supported models are 'whisper-1' (OpenAI) and 'whisper-large-v3' (SambaNova)"}
+                )
+                
+        finally:
+            # Clean up the temporary file
+            if os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
+                
+    except Exception as e:
+        logger.error(f"Error processing audio transcription: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Error processing audio transcription: {str(e)}"}
+        )
 
 # Health check endpoint
 @app.get("/health")
