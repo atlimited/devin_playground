@@ -1,7 +1,5 @@
 import pytest
-from playwright.sync_api import Page, expect
 import os
-import time
 from unittest.mock import patch
 
 
@@ -25,9 +23,18 @@ def mock_openai_response():
         yield mock_create
 
 
-@pytest.mark.skip(reason="Integration tests require a running Streamlit app and are better suited for manual testing")
-def test_chat_interface(page: Page):
-    """Test the chat interface by simulating user interactions"""
+@pytest.mark.skip(reason="Integration tests require manual testing")
+def test_chat_interface():
+    """
+    Manual testing instructions:
     
-    
+    1. Set your OpenAI API key: export OPENAI_API_KEY="your-api-key"
+    2. Run the app: streamlit run app.py
+    3. Enter a message in the text input field
+    4. Click the "Send" button
+    5. Verify that the message appears in the chat history
+    6. Verify that a response from the AI appears in the chat history
+    7. Enter another message and repeat steps 4-6
+    8. Refresh the page and verify that the chat history is preserved
+    """
     pass
